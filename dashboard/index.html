@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Store Intelligence — Live Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+  
+  header {
+    background: #1e293b;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #334155;
+  }
+  header h1 { font-size: 1.4rem; color: #38bdf8; }
+  #live-indicator {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: #94a3b8;
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #22c55e; animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    padding: 24px 32px;
+  }
+  .card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #334155;
+  }
+  .card .label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+  .card .value { font-size: 2.5rem; font-weight: 700; color: #f1f5f9; margin-top: 8px; }
+  .card .sub   { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+
+  .anomaly {
+    margin: 0 32px 20px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .anomaly.CRITICAL { background: #450a0a; border-color: #ef4444; }
+  .anomaly.WARN     { background: #451a03; border-color: #f97316; }
+  .anomaly.INFO     { background: #0c1a2e; border-color: #3b82f6; }
+  .anomaly .title   { font-weight: 600; font-size: 0.9rem; }
+  .anomaly .action  { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+
+  .funnel {
+    margin: 0 32px 24px;
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #334155;
+  }
+  .funnel h2 { font-size: 1rem; color: #94a3b8; margin-bottom: 16px; }
+  .funnel-bar-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+  }
+  .funnel-label { width: 100px; font-size: 0.85rem; }
+  .funnel-bar-bg { flex: 1; background: #334155; border-radius: 4px; height: 22px; }
+  .funnel-bar    { height: 22px; border-radius: 4px; background: #38bdf8;
+                   transition: width 0.5s ease; display: flex; align-items: center;
+                   padding-left: 8px; font-size: 0.75rem; white-space: nowrap; }
+  .funnel-pct    { width: 60px; font-size: 0.8rem; color: #94a3b8; text-align: right; }
+
+  #store-select {
+    background: #334155; color: #e2e8f0;
+    border: 1px solid #475569; border-radius: 6px;
+    padding: 6px 12px; font-size: 0.9rem;
+  }
+  #last-updated { font-size: 0.75rem; color: #475569; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏪 Store Intelligence</h1>
+  <div style="display:flex;gap:20px;align-items:center">
+    <select id="store-select" onchange="changeStore(this.value)">
+      <option value="STORE_BLR_002">STORE_BLR_002</option>
+      <option value="STORE_MUM_001">STORE_MUM_001</option>
+    </select>
+    <div id="live-indicator">
+      <div class="dot"></div> LIVE
+    </div>
+    <span id="last-updated">—</span>
+  </div>
+</header>
+
+<!-- KPI Cards -->
+<div class="grid" id="kpi-grid">
+  <div class="card">
+    <div class="label">Unique Visitors</div>
+    <div class="value" id="kpi-visitors">—</div>
+    <div class="sub">Today</div>
+  </div>
+  <div class="card">
+    <div class="label">Conversion Rate</div>
+    <div class="value" id="kpi-conversion">—</div>
+    <div class="sub">Visitors who purchased</div>
+  </div>
+  <div class="card">
+    <div class="label">Queue Depth</div>
+    <div class="value" id="kpi-queue">—</div>
+    <div class="sub">Billing counter now</div>
+  </div>
+  <div class="card">
+    <div class="label">Avg Dwell</div>
+    <div class="value" id="kpi-dwell">—</div>
+    <div class="sub">Per zone visit</div>
+  </div>
+  <div class="card">
+    <div class="label">Abandonment Rate</div>
+    <div class="value" id="kpi-abandon">—</div>
+    <div class="sub">Left queue before purchase</div>
+  </div>
+</div>
+
+<!-- Anomalies -->
+<div id="anomalies-section"></div>
+
+<!-- Funnel -->
+<div class="funnel">
+  <h2>📊 Conversion Funnel</h2>
+  <div id="funnel-bars"></div>
+</div>
+
+<script>
+  const API = "http://localhost:8000";
+  let currentStore = "STORE_BLR_002";
+
+  function changeStore(id) { currentStore = id; refresh(); }
+
+  async function fetchJSON(url) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      return r.json();
+    } catch { return null; }
+  }
+
+  async function refresh() {
+    const [metrics, anomalies, funnel] = await Promise.all([
+      fetchJSON(`${API}/stores/${currentStore}/metrics`),
+      fetchJSON(`${API}/stores/${currentStore}/anomalies`),
+      fetchJSON(`${API}/stores/${currentStore}/funnel`),
+    ]);
+
+    if (metrics) {
+      document.getElementById("kpi-visitors").textContent   = metrics.unique_visitors;
+      document.getElementById("kpi-conversion").textContent = (metrics.conversion_rate * 100).toFixed(1) + "%";
+      document.getElementById("kpi-queue").textContent      = metrics.queue_depth;
+      document.getElementById("kpi-dwell").textContent      = (metrics.avg_dwell_ms / 1000).toFixed(0) + "s";
+      document.getElementById("kpi-abandon").textContent    = (metrics.abandonment_rate * 100).toFixed(1) + "%";
+    }
+
+    if (anomalies) {
+      const sec = document.getElementById("anomalies-section");
+      sec.innerHTML = "";
+      for (const a of anomalies.anomalies) {
+        sec.innerHTML += `
+          <div class="anomaly ${a.severity}">
+            <div>
+              <div class="title">⚠ ${a.anomaly_type.replace(/_/g," ")} — ${a.severity}</div>
+              <div style="font-size:0.85rem;margin-top:4px">${a.description}</div>
+              <div class="action">→ ${a.suggested_action}</div>
+            </div>
+          </div>`;
+      }
+    }
+
+    if (funnel) {
+      const maxCount = Math.max(...funnel.stages.map(s => s.count)) || 1;
+      document.getElementById("funnel-bars").innerHTML = funnel.stages.map(s => `
+        <div class="funnel-bar-row">
+          <span class="funnel-label">${s.stage}</span>
+          <div class="funnel-bar-bg">
+            <div class="funnel-bar" style="width:${(s.count/maxCount)*100}%">
+              ${s.count}
+            </div>
+          </div>
+          <span class="funnel-pct">${s.dropoff_pct > 0 ? "-"+s.dropoff_pct+"%" : "—"}</span>
+        </div>`).join("");
+    }
+
+    document.getElementById("last-updated").textContent =
+      "Updated " + new Date().toLocaleTimeString();
+  }
+
+  refresh();
+  setInterval(refresh, 5000);   // refresh every 5 seconds
+</script>
+</body>
+</html>

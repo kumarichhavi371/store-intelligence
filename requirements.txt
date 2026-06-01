@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+python-multipart
+opencv-python-headless
+numpy
+httpx
+pytest
+pytest-asyncio
+pytest-cov
+rich
+requests
+python-dotenv
+aiofiles

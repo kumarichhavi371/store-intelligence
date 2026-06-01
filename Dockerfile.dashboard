@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir fastapi uvicorn aiofiles
+COPY dashboard/ ./dashboard/
+
+# Serve static files
+RUN echo 'from fastapi import FastAPI\nfrom fastapi.responses import FileResponse\nfrom fastapi.staticfiles import StaticFiles\napp = FastAPI()\napp.mount("/", StaticFiles(directory="dashboard", html=True), name="static")' > serve.py
+
+EXPOSE 3000
+CMD ["uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "3000"]
