@@ -1,0 +1,16 @@
+python -c "
+content = '''__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+*.db
+.coverage
+fix_*.py
+data/clips/
+data/*.mp4
+'''
+with open('.gitignore', 'w') as f:
+    f.write(content)
+print('Done')
+"
