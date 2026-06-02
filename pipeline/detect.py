@@ -50,18 +50,18 @@ def get_zone_for_box(box, frame_h, frame_w, zones: list) -> str | None:
     """
     Given a bounding box [x1,y1,x2,y2] and frame dimensions,
     return the zone name this detection falls in.
-    Uses simple Y-position heuristic if no pixel coordinates in layout.
+    Uses simple Y-position heuristic.
     """
-    cx = (box[0] + box[2]) / 2
-    cy = (box[1] + box[3]) / 2
 
+    cy = (box[1] + box[3]) / 2
     cy_ratio = cy / frame_h
 
     if cy_ratio < ENTRY_ZONE_Y_RATIO:
         return "ENTRY_ZONE"
+    elif cy_ratio > BILLING_ZONE_Y_RATIO:
+        return "BILLING_ZONE"
     else:
         return "MAIN_FLOOR"
-
 
 def is_staff_heuristic(track_history: dict, track_id: int, box, frame_h) -> bool:
     """
