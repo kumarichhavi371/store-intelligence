@@ -30,7 +30,7 @@ ENTRY_ZONE_Y_RATIO   = 0.35   # top 35% of frame = entry zone
 BILLING_ZONE_Y_RATIO = 0.65   # bottom 35% = billing zone
 DWELL_EMIT_INTERVAL  = 30     # emit ZONE_DWELL every 30 seconds
 REENTRY_WINDOW_SEC   = 300    # 5 min — if same person returns, it's re-entry
-STAFF_MIN_FRAMES     = 150    # staff appear in >150 frames continuously
+STAFF_MIN_FRAMES     = 1200    # staff appear in >150 frames continuously
 CONFIDENCE_THRESHOLD = 0.35   # minimum detection confidence to keep
 
 # Staff detection: bounding box height ratio (staff tend to fill more of frame)
@@ -59,8 +59,6 @@ def get_zone_for_box(box, frame_h, frame_w, zones: list) -> str | None:
 
     if cy_ratio < ENTRY_ZONE_Y_RATIO:
         return "ENTRY_ZONE"
-    elif cy_ratio > BILLING_ZONE_Y_RATIO:
-        return "BILLING_ZONE"
     else:
         return "MAIN_FLOOR"
 

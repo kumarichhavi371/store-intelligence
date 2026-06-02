@@ -1,41 +1,167 @@
 # CHOICES.md — Key Design Decisions
 
-## Decision 1: Detection Model — YOLOv8n
+## Decision 1: Detection Model Selection
 
-**Options considered:**
-- YOLOv8n (nano) — fast, ~6MB, 37.3 mAP on COCO
-- YOLOv8m (medium) — more accurate, ~25MB, slower
-- RT-DETR — transformer-based, higher accuracy, GPU required
-- MediaPipe — very fast, lower accuracy for crowds
+### Options Considered
 
-**What AI suggested:** Claude suggested YOLOv8m as a better balance of accuracy vs speed for retail CCTV. It also suggested RT-DETR for better performance on crowded scenes.
+* YOLOv8n
+* YOLOv8m
+* RT-DETR
+* MediaPipe
 
-**What I chose and why:** YOLOv8n. This challenge prioritises getting a working system over maximum accuracy. YOLOv8n runs at real-time speeds on CPU (the minimum viable deployment), handles the 1080p@15fps source well when processing every 3rd frame (effective 5fps), and the `supervision` library has excellent native integration. If I had GPU access, I would upgrade to YOLOv8m or RT-DETR for the billing queue scenes where occlusion is heaviest.
+### Selected
 
-**Trade-off acknowledged:** Lower recall on partially occluded people (the billing queue edge case). Mitigated by not suppressing low-confidence detections — they're emitted with their actual confidence score.
+YOLOv8n
+
+### Rationale
+
+The challenge prioritizes a working end-to-end system with reasonable performance on commodity hardware.
+
+YOLOv8n was selected because:
+
+* Fast inference speed
+* Small model size
+* Good person-detection accuracy
+* Easy integration with the pipeline
+* Suitable for CPU execution
+
+### Trade-off
+
+Compared with larger models, YOLOv8n may miss partially occluded people in crowded scenes.
+
+This was considered acceptable for the challenge scope.
 
 ---
 
 ## Decision 2: Event Schema Design
 
-**Options considered:**
-- Minimal schema (just entry/exit + timestamp)
-- Full schema as specified (8 event types + metadata)
-- Extended schema with raw bounding box coordinates
+### Options Considered
 
-**What AI suggested:** The LLM recommended including raw bounding box coordinates in metadata for future analytics (heatmap overlaid on actual store image). It also suggested a `session_id` field separate from `visitor_id` to handle re-entries more cleanly.
+1. Minimal schema
+2. Required challenge schema
+3. Extended schema with raw bounding-box coordinates
 
-**What I chose and why:** I followed the required schema exactly and added `session_seq` to metadata as a lightweight session tracker. I did not add bounding boxes because they would triple the event size and the downstream API doesn't need them. The `visitor_id` doubles as session identifier — re-entries generate a `REENTRY` event type rather than needing a separate field.
+### Selected
+
+Required challenge schema with lightweight metadata fields.
+
+### Rationale
+
+The provided schema already supports:
+
+* Visitor tracking
+* Zone analytics
+* Funnel computation
+* Queue monitoring
+* Anomaly detection
+
+Additional bounding-box data was intentionally excluded because:
+
+* It significantly increases event size
+* It is not required by downstream analytics
+* It increases storage costs
+
+### Trade-off
+
+Future visual heatmap overlays would benefit from coordinate-level information.
 
 ---
 
-## Decision 3: API Architecture — SQLite + FastAPI (no message queue)
+## Decision 3: Database Architecture
 
-**Options considered:**
-- FastAPI + SQLite (simple, zero-ops)
-- FastAPI + PostgreSQL + Redis (production-grade, complex)
-- FastAPI + Kafka + TimescaleDB (streaming-native, very complex)
+### Options Considered
 
-**What AI suggested:** The LLM recommended PostgreSQL for production readiness and noted that SQLite has write-lock contention under concurrent ingest. It specifically flagged that 40 stores × 3 cameras × 15fps would overwhelm SQLite in production.
+* SQLite
+* PostgreSQL
+* PostgreSQL + Redis
+* Kafka-based streaming architecture
 
-**What I chose and why:** SQLite for the challenge scope. The acceptance gate requires `docker compose up` with no manual steps — PostgreSQL requires a separate service with proper initialisation. SQLite satisfies all test assertions and runs reliably in a single container. I documented the PostgreSQL upgrade path: swap `DATABASE_URL` env var, remove `check_same_thread`, and the rest of the code is identical because SQLAlchemy abstracts the engine.
+### Selected
+
+SQLite
+
+### Rationale
+
+The challenge emphasizes:
+
+* Simple setup
+* Minimal dependencies
+* Fast local execution
+* Docker-based deployment
+
+SQLite provides:
+
+* Zero configuration
+* Small footprint
+* Reliable local persistence
+* Fast development iteration
+
+### Trade-off
+
+SQLite is not ideal for very high write concurrency.
+
+A production deployment could migrate to PostgreSQL without significant application changes because SQLAlchemy abstracts the database layer.
+
+---
+
+## Decision 4: API Framework
+
+### Options Considered
+
+* FastAPI
+* Flask
+* Django REST Framework
+
+### Selected
+
+FastAPI
+
+### Rationale
+
+FastAPI offers:
+
+* Automatic OpenAPI generation
+* Built-in request validation
+* High performance
+* Simple asynchronous support
+* Interactive Swagger documentation
+
+These features significantly reduce development effort while maintaining production-quality APIs.
+
+---
+
+## Decision 5: Containerization Strategy
+
+### Selected
+
+Docker Compose
+
+### Rationale
+
+Docker Compose enables:
+
+* One-command startup
+* Consistent environments
+* Easy evaluation by reviewers
+* Reproducible deployment
+
+The entire platform can be launched using:
+
+```bash
+docker compose up --build
+```
+
+which aligns with the challenge evaluation requirements.
+
+---
+
+## Future Improvements
+
+If extended beyond the challenge scope:
+
+* PostgreSQL for scalable persistence
+* Redis caching
+* Kafka event streaming
+* Dedicated analytics workers
+* Re-identification models for long-term visitor tracking
+* Multi-store aggregation and reporting

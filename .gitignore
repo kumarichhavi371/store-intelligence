@@ -1,16 +1,25 @@
-python -c "
-content = '''__pycache__/
+**pycache**/
 *.pyc
 *.pyo
+
 venv/
 .env
+
 *.db
+store_intelligence.db
+
 .coverage
+.pytest_cache/
+
 fix_*.py
+
 data/clips/
 data/*.mp4
-'''
-with open('.gitignore', 'w') as f:
-    f.write(content)
-print('Done')
-"
+data/*.jsonl
+
+yolov8n.pt
+
+scripts/app/
+scripts/dashboard/
+scripts/docs/
+scripts/pipeline/

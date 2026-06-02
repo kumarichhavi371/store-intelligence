@@ -18,9 +18,8 @@ def get_store_metrics(store_id: str, db: Session) -> StoreMetrics:
 
     # Base query — exclude staff
     base = (db.query(EventRecord)
-              .filter(EventRecord.store_id == store_id)
-              .filter(EventRecord.is_staff == False)
-              .filter(EventRecord.timestamp >= today_start))
+          .filter(EventRecord.store_id == store_id)
+          .filter(EventRecord.is_staff == False))
 
     # ── Unique visitors (ENTRY events, unique visitor_id) ──
     unique_visitors = (
