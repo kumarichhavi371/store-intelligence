@@ -36,13 +36,12 @@ def get_funnel(store_id: str, db: Session) -> FunnelResponse:
             zone_visitors.add(e.visitor_id)
 
         if e.zone_id == "BILLING_ZONE":
-            billing_visitors.add(e.visitor_id)
+         billing_visitors.add(e.visitor_id)
 
-            if e.event_type == "ZONE_DWELL" and e.dwell_ms >= 60000:
-                purchase_visitors.add(e.visitor_id)
-
+    # Heuristic: reaching billing zone indicates purchase intent
+        purchase_visitors.add(e.visitor_id)
     # Funnel sanity checks
-    entry_count = len(entered_visitors)
+        entry_count = len(entered_visitors)
 
     zone_count = min(len(zone_visitors), entry_count)
     billing_count = min(len(billing_visitors), zone_count)
