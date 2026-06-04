@@ -15,7 +15,7 @@ fix_*.py
 
 data/clips/
 data/*.mp4
-data/*.jsonl
+#data/*.jsonl
 
 yolov8n.pt
 
